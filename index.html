@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Intervalo</title>
+    <title>Calculadora de Intervalo e Jornada de Trabalho</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,7 +18,7 @@
         }
 
         .container {
-            max-width: 400px;
+            max-width: 600px;
             margin: 0 auto;
             background: white;
             padding: 20px;
@@ -51,39 +51,193 @@
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s;
+            margin-bottom: 10px;
         }
 
         button:hover {
             background-color: #218838;
         }
 
-        #resultado {
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        #resultado, #resultadoJornada {
             margin-top: 20px;
             text-align: center;
             font-size: 18px;
             color: #555;
         }
+
+        .pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .pagination button {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
     </style>
     <script>
+        let registros = JSON.parse(localStorage.getItem('registrosTrabalho')) || [];
+        let paginaAtual = 1;
+        const registrosPorPagina = 5;
+
         function calcularIntervalo() {
             const horaSaida = document.getElementById('horaSaida').value;
             const [horas, minutos] = horaSaida.split(':').map(Number);
             const data = new Date();
             data.setHours(horas, minutos, 0);
-            data.setMinutes(data.getMinutes() + 90); // Adiciona 90 minutos
+            data.setMinutes(data.getMinutes() + 90);
             const horasFinais = String(data.getHours()).padStart(2, '0');
             const minutosFinais = String(data.getMinutes()).padStart(2, '0');
             document.getElementById('resultado').innerText = `Você deve voltar às: ${horasFinais}:${minutosFinais}`;
         }
+
+        function calcularJornada() {
+            const horaEntrada = document.getElementById('horaEntrada').value;
+            const horaSaidaIntervalo = document.getElementById('horaSaidaIntervalo').value;
+            const horaRetornoIntervalo = document.getElementById('horaRetornoIntervalo').value;
+            const horaSaida = document.getElementById('horaSaidaFinal').value;
+
+            if (horaEntrada && horaSaidaIntervalo && horaRetornoIntervalo && horaSaida) {
+                const entrada = new Date(`1970-01-01T${horaEntrada}:00`);
+                const saidaIntervalo = new Date(`1970-01-01T${horaSaidaIntervalo}:00`);
+                const retornoIntervalo = new Date(`1970-01-01T${horaRetornoIntervalo}:00`);
+                const saida = new Date(`1970-01-01T${horaSaida}:00`);
+
+                const tempoAntesIntervalo = (saidaIntervalo - entrada) / (1000 * 60);
+                const tempoDepoisIntervalo = (saida - retornoIntervalo) / (1000 * 60);
+                const tempoTotal = tempoAntesIntervalo + tempoDepoisIntervalo;
+
+                const horasTotais = Math.floor(tempoTotal / 60);
+                const minutosTotais = tempoTotal % 60;
+
+                document.getElementById('resultadoJornada').innerText = 
+                    `Tempo total trabalhado: ${horasTotais}h e ${minutosTotais}min (excluindo intervalo).`;
+
+                const registro = {
+                    data: new Date().toLocaleDateString(),
+                    horaEntrada,
+                    horaSaidaIntervalo,
+                    horaRetornoIntervalo,
+                    horaSaida,
+                    horasTrabalhadas: `${horasTotais}h e ${minutosTotais}min`
+                };
+                registros.push(registro);
+                localStorage.setItem('registrosTrabalho', JSON.stringify(registros));
+                atualizarTabela();
+            } else {
+                document.getElementById('resultadoJornada').innerText = 'Preencha todos os horários corretamente.';
+            }
+        }
+
+        function atualizarTabela() {
+            const tabela = document.getElementById('tabelaRegistros');
+            tabela.innerHTML = `
+                <tr>
+                    <th>Data</th>
+                    <th>Entrada</th>
+                    <th>Saída Intervalo</th>
+                    <th>Retorno Intervalo</th>
+                    <th>Saída Final</th>
+                    <th>Horas Trabalhadas</th>
+                </tr>
+            `;
+            
+            const inicio = (paginaAtual - 1) * registrosPorPagina;
+            const fim = inicio + registrosPorPagina;
+            const registrosPaginados = registros.slice(inicio, fim);
+
+            registrosPaginados.forEach((registro) => {
+                tabela.innerHTML += `
+                    <tr>
+                        <td>${registro.data}</td>
+                        <td>${registro.horaEntrada}</td>
+                        <td>${registro.horaSaidaIntervalo}</td>
+                        <td>${registro.horaRetornoIntervalo}</td>
+                        <td>${registro.horaSaida}</td>
+                        <td>${registro.horasTrabalhadas}</td>
+                    </tr>
+                `;
+            });
+
+            atualizarPaginacao();
+        }
+
+        function atualizarPaginacao() {
+            const totalPaginas = Math.ceil(registros.length / registrosPorPagina);
+            const paginacao = document.getElementById('pagination');
+            paginacao.innerHTML = '';
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                const button = document.createElement('button');
+                button.innerText = i;
+                button.onclick = () => {
+                    paginaAtual = i;
+                    atualizarTabela();
+                };
+                paginacao.appendChild(button);
+            }
+        }
+
+        window.onload = atualizarTabela;
     </script>
 </head>
 <body>
     <div class="container">
-        <h1>Cálculo de Intervalo de 1:30</h1>
+        <h1>Calculadora de Intervalo e Jornada de Trabalho</h1>
+        <h2>Calcular Intervalo de 1:30</h2>
         <label for="horaSaida">Hora que você saiu (HH:MM):</label>
         <input type="time" id="horaSaida" value="07:30" required>
-        <button onclick="calcularIntervalo()">Calcular</button>
+        <button onclick="calcularIntervalo()">Calcular Intervalo</button>
         <p id="resultado"></p>
+
+        <h2>Calcular Jornada de Trabalho</h2>
+        <label for="horaEntrada">Hora de Entrada (HH:MM):</label>
+        <input type="time" id="horaEntrada" required>
+
+        <label for="horaSaidaIntervalo">Saída para Intervalo (HH:MM):</label>
+        <input type="time" id="horaSaidaIntervalo" required>
+
+        <label for="horaRetornoIntervalo">Retorno do Intervalo (HH:MM):</label>
+        <input type="time" id="horaRetornoIntervalo" required>
+
+        <label for="horaSaidaFinal">Saída Final (HH:MM):</label>
+        <input type="time" id="horaSaidaFinal" required>
+
+        <button onclick="calcularJornada()">Calcular Jornada</button>
+        <p id="resultadoJornada"></p>
+
+        <h2>Registros de Jornada</h2>
+        <table id="tabelaRegistros">
+            <tr>
+                <th>Data</th>
+                <th>Entrada</th>
+                <th>Saída Intervalo</th>
+                <th>Retorno Intervalo</th>
+                <th>Saída Final</th>
+                <th>Horas Trabalhadas</th>
+            </tr>
+        </table>
+        <div id="pagination" class="pagination"></div>
     </div>
 </body>
 </html>
